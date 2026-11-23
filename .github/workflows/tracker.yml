@@ -1,0 +1,42 @@
+name: Leonida Watch — Scheduled Evidence Tracker
+
+# Phase 3: Unattended Periodic Check
+# Runs on a configurable schedule in your own dashboard repository.
+# Keeps all secrets server-side in GitHub Actions Secrets.
+# Does NOT require any paid cloud resources or continuous agent loops.
+
+on:
+  schedule:
+    # Run once every 6 hours (configurable)
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions UI
+
+permissions:
+  contents: write
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out dashboard repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check for new commits and build snapshot
+        env:
+          # Optional GitHub token from repository secrets to avoid rate limits
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python build_snapshot.py
+
+      - name: Commit and push updated snapshot if changed
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/data/snapshot.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore(data): automated snapshot refresh [skip ci]" && git push)
